@@ -1,11 +1,9 @@
 import * as secp256k1 from '@noble/secp256k1'
-
 import { applySpec, converge, curry, mergeLeft, nth, omit, pipe, prop, reduceBy } from 'ramda'
 import { CanonicalEvent, DBEvent, Event, UnidentifiedEvent, UnsignedEvent } from '../@types/event'
 import { createCipheriv, getRandomValues } from 'crypto'
 import { EventId, Pubkey, Tag } from '../@types/base'
 import { EventKinds, EventTags } from '../constants/base'
-
 import cluster from 'cluster'
 import { deriveFromSecret } from './secret'
 import { EventKindsRange } from '../@types/settings'
@@ -15,6 +13,7 @@ import { isGenericTagQuery } from './filter'
 import { RuneLike } from './runes/rune-like'
 import { SubscriptionFilter } from '../@types/subscription'
 import { WebSocketServerAdapterEvent } from '../constants/adapter'
+
 
 export const serializeEvent = (event: UnidentifiedEvent): CanonicalEvent => [
   0,
@@ -295,6 +294,12 @@ export const isExpiredEvent = (event: Event): boolean => {
   const isExpired = expirationTime <= Math.floor(date.getTime() / 1000)
 
   return isExpired
+}
+
+export const isGroupMetadataUpdate = (event: Event): boolean => {
+    if (event.kind === EventKinds.GROUP_METADATA_UPDATE) return true
+    else return false
+
 }
 
 export const getEventExpiration = (event: Event): number | undefined => {

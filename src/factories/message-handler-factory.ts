@@ -1,4 +1,4 @@
-import { IEventRepository, IUserRepository } from '../@types/repositories'
+import { IEventRepository, IGroupRepository, IUserRepository } from '../@types/repositories'
 import { IncomingMessage, MessageType } from '../@types/messages'
 import { createSettings } from './settings-factory'
 import { DelegatedEventMessageHandler } from '../handlers/delegated-event-message-handler'
@@ -11,9 +11,12 @@ import { slidingWindowRateLimiterFactory } from './rate-limiter-factory'
 import { SubscribeMessageHandler } from '../handlers/subscribe-message-handler'
 import { UnsubscribeMessageHandler } from '../handlers/unsubscribe-message-handler'
 
+
+
 export const messageHandlerFactory = (
   eventRepository: IEventRepository,
   userRepository: IUserRepository,
+  groupRepository: IGroupRepository
 ) => ([message, adapter]: [IncomingMessage, IWebSocketAdapter]) => {
   switch (message[0]) {
     case MessageType.EVENT:
@@ -30,7 +33,7 @@ export const messageHandlerFactory = (
 
         return new EventMessageHandler(
           adapter,
-          eventStrategyFactory(eventRepository),
+          eventStrategyFactory(eventRepository, groupRepository),
           userRepository,
           createSettings,
           slidingWindowRateLimiterFactory,

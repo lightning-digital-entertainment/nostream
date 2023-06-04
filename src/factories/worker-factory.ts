@@ -1,22 +1,24 @@
-import { is, path, pathSatisfies } from 'ramda'
-import http from 'http'
-import process from 'process'
-import { WebSocketServer } from 'ws'
-
 import { getMasterDbClient, getReadReplicaDbClient } from '../database/client'
+import { is, path, pathSatisfies } from 'ramda'
 import { AppWorker } from '../app/worker'
 import { createSettings } from '../factories/settings-factory'
 import { createWebApp } from './web-app-factory'
+import http from 'http'
+import process from 'process'
+import { WebSocketServer } from 'ws'
+import { WebSocketServerAdapter } from '../adapters/web-socket-server-adapter'
+
 import { EventRepository } from '../repositories/event-repository'
+import { GroupRepository } from '../repositories/group-repository'
 import { UserRepository } from '../repositories/user-repository'
 import { webSocketAdapterFactory } from './websocket-adapter-factory'
-import { WebSocketServerAdapter } from '../adapters/web-socket-server-adapter'
 
 export const workerFactory = (): AppWorker => {
   const dbClient = getMasterDbClient()
   const readReplicaDbClient = getReadReplicaDbClient()
   const eventRepository = new EventRepository(dbClient, readReplicaDbClient)
   const userRepository = new UserRepository(dbClient)
+  const groupRepository = new GroupRepository(dbClient)
 
   const settings = createSettings()
 
@@ -58,7 +60,7 @@ export const workerFactory = (): AppWorker => {
   const adapter = new WebSocketServerAdapter(
     server,
     webSocketServer,
-    webSocketAdapterFactory(eventRepository, userRepository),
+    webSocketAdapterFactory(eventRepository, userRepository, groupRepository),
     createSettings,
   )
 

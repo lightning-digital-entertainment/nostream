@@ -31,6 +31,12 @@ export enum EventKinds {
   PARAMETERIZED_REPLACEABLE_FIRST = 30000,
   PARAMETERIZED_REPLACEABLE_LAST = 39999,
   USER_APPLICATION_FIRST = 40000,
+  // NIP 29
+  GROUP_MESSAGE = 9,
+  GROUP_METADATA_UPDATE = 9000,
+  GROUP_METADATA_SEND = 39000,
+  GROUP_METADATA_ADMINS = 39001
+
 }
 
 export enum EventTags {
@@ -41,6 +47,7 @@ export enum EventTags {
   Deduplication = 'd',
   Expiration = 'expiration',
   Invoice = 'bolt11',
+  groupChat = 'g'
 }
 
 export enum PaymentsProcessors {

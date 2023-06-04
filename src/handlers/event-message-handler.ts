@@ -13,6 +13,8 @@ import { IUserRepository } from '../@types/repositories'
 import { IWebSocketAdapter } from '../@types/adapters'
 import { WebSocketAdapterEvent } from '../constants/adapter'
 
+
+
 const debug = createLogger('event-message-handler')
 
 export class EventMessageHandler implements IMessageHandler {
@@ -57,12 +59,14 @@ export class EventMessageHandler implements IMessageHandler {
       return
     }
 
+    /*
     reason = await this.isUserAdmitted(event)
     if (reason) {
       debug('event %s rejected: %s', event.id, reason)
       this.webSocket.emit(WebSocketAdapterEvent.Message, createCommandResult(event.id, false, reason))
       return
     }
+    */
 
     const strategy = this.strategyFactory([event, this.webSocket])
 

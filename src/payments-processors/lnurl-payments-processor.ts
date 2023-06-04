@@ -1,9 +1,8 @@
-import { AxiosInstance } from 'axios'
-import { Factory } from '../@types/base'
-
 import { CreateInvoiceRequest, GetInvoiceResponse, IPaymentsProcessor } from '../@types/clients'
-import { InvoiceStatus, InvoiceUnit, LnurlInvoice } from '../@types/invoice'
+import { Invoice, InvoiceStatus, InvoiceUnit} from '../@types/invoice'
+import { AxiosInstance } from 'axios'
 import { createLogger } from '../factories/logger-factory'
+import { Factory } from '../@types/base'
 import { randomUUID } from 'crypto'
 import { Settings } from '../@types/settings'
 
@@ -15,10 +14,11 @@ export class LnurlPaymentsProcesor implements IPaymentsProcessor {
     private settings: Factory<Settings>
   ) {}
 
-  public async getInvoice(invoice: LnurlInvoice): Promise<GetInvoiceResponse> {
+  public async getInvoice(invoice: Invoice): Promise<GetInvoiceResponse> {
     debug('get invoice: %s', invoice.id)
 
     try {
+      debug('verifyURL: %o', invoice.verifyURL)
       const response = await this.httpClient.get(invoice.verifyURL)
 
       return {
@@ -42,7 +42,7 @@ export class LnurlPaymentsProcesor implements IPaymentsProcessor {
     } = request
 
     try {
-      const response = await this.httpClient.get(`${this.settings().paymentsProcessors?.lnurl?.invoiceURL}/callback?amount=${amountMsats}&comment=${description}`)
+      const response = await this.httpClient.get(`${this.settings().paymentsProcessors?.lnurl?.invoiceURL}?amount=${amountMsats}&comment=${description}`)
 
       const result = {
         id: randomUUID(),

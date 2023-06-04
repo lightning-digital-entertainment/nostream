@@ -1,7 +1,7 @@
 import { always, applySpec, cond, equals, ifElse, is, isNil, multiply, path, pathSatisfies, pipe, prop, propSatisfies, T } from 'ramda'
-import { bech32 } from 'bech32'
-
 import { Invoice, InvoiceStatus, InvoiceUnit } from '../@types/invoice'
+import { bech32 } from 'bech32'
+import { Group } from '../@types/group'
 import { User } from '../@types/user'
 
 export const toJSON = (input: any) => JSON.stringify(input)
@@ -40,6 +40,14 @@ export const fromDBUser = applySpec<User>({
   pubkey: pipe(prop('pubkey') as () => Buffer, fromBuffer),
   isAdmitted: prop('is_admitted'),
   balance: prop('balance'),
+  createdAt: prop('created_at'),
+  updatedAt: prop('updated_at'),
+})
+
+export const fromDBGroup = applySpec<Group>({
+  groupName: prop('group_name'),
+  pubkey: pipe(prop('pubkey') as () => Buffer, fromBuffer),
+  role1: prop('role_1'),
   createdAt: prop('created_at'),
   updatedAt: prop('updated_at'),
 })

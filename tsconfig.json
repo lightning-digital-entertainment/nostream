@@ -8,7 +8,7 @@
     "allowSyntheticDefaultImports": true,
     "target": "ESNext",
     "outDir": "./dist",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
     "types": ["node", "mocha", "@cucumber/cucumber"],
     "typeRoots": ["./node_modules/@types"],
     "incremental": true,

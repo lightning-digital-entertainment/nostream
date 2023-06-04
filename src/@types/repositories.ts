@@ -2,6 +2,7 @@ import { PassThrough } from 'stream'
 
 import { DatabaseClient, EventId, Pubkey } from './base'
 import { DBEvent, Event } from './event'
+import { Group } from './group'
 import { Invoice } from './invoice'
 import { SubscriptionFilter } from './subscription'
 import { User } from './user'
@@ -44,4 +45,11 @@ export interface IUserRepository {
   findByPubkey(pubkey: Pubkey, client?: DatabaseClient): Promise<User | undefined>
   upsert(user: Partial<User>, client?: DatabaseClient): Promise<number>
   getBalanceByPubkey(pubkey: Pubkey, client?: DatabaseClient): Promise<bigint>
+}
+
+export interface IGroupRepository {
+  findByPubkey(pubkey: Pubkey, client?: DatabaseClient): Promise<Group | undefined>
+  findByGroupName(groupName: string, client?: DatabaseClient): Promise<Group | undefined>
+  upsert(group: Partial<Group>, client?: DatabaseClient): Promise<number>
+  
 }
