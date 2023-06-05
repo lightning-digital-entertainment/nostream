@@ -50,6 +50,14 @@ export enum EventTags {
   groupChat = 'g'
 }
 
+export enum GroupRoles {
+
+    Admin = 'admin',
+    User = 'user',
+    Ban = 'ban'
+
+}
+
 export enum PaymentsProcessors {
   LNURL = 'lnurl',
   ZEBEDEE = 'zebedee',

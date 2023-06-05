@@ -45,7 +45,7 @@ export const fromDBUser = applySpec<User>({
 })
 
 export const fromDBGroup = applySpec<Group>({
-  groupName: prop('group_name'),
+  groupTag: prop('group_tag'),
   pubkey: pipe(prop('pubkey') as () => Buffer, fromBuffer),
   role1: prop('role_1'),
   createdAt: prop('created_at'),

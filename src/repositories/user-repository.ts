@@ -37,6 +37,7 @@ export class UserRepository implements IUserRepository {
 
     const row = applySpec<DBUser>({
       pubkey: pipe(prop('pubkey'), toBuffer),
+      balance: prop('balance'),
       is_admitted: prop('isAdmitted'),
       tos_accepted_at: prop('tosAcceptedAt'),
       updated_at: always(date),
@@ -49,7 +50,6 @@ export class UserRepository implements IUserRepository {
       .merge(
         omit([
           'pubkey',
-          'balance',
           'created_at',
         ])(row)
       )

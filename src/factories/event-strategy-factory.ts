@@ -1,5 +1,6 @@
 import { IEventRepository, IGroupRepository } from '../@types/repositories'
 import { isDeleteEvent, isEphemeralEvent, isGroupMetadataUpdate, isParameterizedReplaceableEvent, isReplaceableEvent } from '../utils/event'
+import { createSettings } from './settings-factory'
 import { DefaultEventStrategy } from '../handlers/event-strategies/default-event-strategy'
 import { DeleteEventStrategy } from '../handlers/event-strategies/delete-event-strategy'
 import { EphemeralEventStrategy } from '../handlers/event-strategies/ephemeral-event-strategy'
@@ -32,7 +33,8 @@ export const eventStrategyFactory = (
     } else if (isParameterizedReplaceableEvent(event)) {
       return new ParameterizedReplaceableEventStrategy(adapter, eventRepository)
     } else if (isGroupMetadataUpdate(event)) {
-      return new GroupMetadataUpdateEventStrategy(adapter, eventRepository, groupRepository, userRepository, cache)
+      return new GroupMetadataUpdateEventStrategy(adapter, eventRepository, 
+                        groupRepository, userRepository, cache, dbClient, createSettings)
     } 
 
     return new DefaultEventStrategy(adapter, eventRepository)

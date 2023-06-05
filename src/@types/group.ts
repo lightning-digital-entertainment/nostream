@@ -1,7 +1,7 @@
 import { Pubkey } from './base'
 
 export interface Group {
-  groupName: string  
+  groupTag: string  
   pubkey: Pubkey
   role1: string
   createdAt: Date
@@ -9,7 +9,7 @@ export interface Group {
 }
 
 export interface DBGroup {
-  group_name: string  
+  group_tag: string  
   pubkey: Buffer
   role_1: string
   created_at: Date

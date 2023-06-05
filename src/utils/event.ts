@@ -1,10 +1,11 @@
 import * as secp256k1 from '@noble/secp256k1'
 import { applySpec, converge, curry, mergeLeft, nth, omit, pipe, prop, reduceBy } from 'ramda'
 import { CanonicalEvent, DBEvent, Event, UnidentifiedEvent, UnsignedEvent } from '../@types/event'
-import { createCipheriv, getRandomValues } from 'crypto'
+import { createCipheriv, createHash, getRandomValues, Hash } from 'crypto'
 import { EventId, Pubkey, Tag } from '../@types/base'
 import { EventKinds, EventTags } from '../constants/base'
 import cluster from 'cluster'
+import { createLogger } from '../factories/logger-factory'
 import { deriveFromSecret } from './secret'
 import { EventKindsRange } from '../@types/settings'
 import { fromBuffer } from './transform'
@@ -13,6 +14,12 @@ import { isGenericTagQuery } from './filter'
 import { RuneLike } from './runes/rune-like'
 import { SubscriptionFilter } from '../@types/subscription'
 import { WebSocketServerAdapterEvent } from '../constants/adapter'
+
+
+const debug = createLogger('utils-event')
+
+secp256k1.utils.sha256Sync = (...messages: Uint8Array[]) =>
+  messages.reduce((hash: Hash, message: Uint8Array) => hash.update(message),  createHash('sha256')).digest()
 
 
 export const serializeEvent = (event: UnidentifiedEvent): CanonicalEvent => [
@@ -319,3 +326,33 @@ export const getEventProofOfWork = (eventId: EventId): number => {
 export const getPubkeyProofOfWork = (pubkey: Pubkey): number => {
   return getLeadingZeroBits(Buffer.from(pubkey, 'hex'))
 }
+
+
+export const createEvent = async (input: Partial<Event>): Promise<Event> => {
+
+  const event: Event = {
+    pubkey: getPublicKey(process.env.RELAY_PRIVATE_KEY),
+    kind: input.kind,
+    created_at: input.created_at ?? Math.floor(Date.now() / 1000),
+    content: input.content ?? '',
+    tags: input.tags ?? [],
+  } as any
+
+  const id = createHash('sha256').update(
+    Buffer.from(JSON.stringify(serializeEvent(event)))
+  ).digest().toString('hex')
+
+  const sig = Buffer.from(
+    secp256k1.schnorr.signSync(id, process.env.RELAY_PRIVATE_KEY)
+  ).toString('hex')
+
+  event.id = id
+  event.sig = sig
+
+  debug('created event is: %o', event)
+
+  return event
+}
+
+
+

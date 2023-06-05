@@ -281,4 +281,20 @@ export class EventRepository implements IEventRepository {
         deleted_at: this.masterDbClient.raw('now()'),
       })
   }
+
+  public async findByEventId(
+    eventId: string,
+    client: DatabaseClient = this.masterDbClient
+  ): Promise<DBEvent | undefined> {
+    debug('find by event_id: %s', eventId)
+    const [dbevent] = await client<DBEvent>('events')
+      .where('event_id', toBuffer(eventId))
+      .select()
+
+    if (!dbevent) {
+      return
+    }
+
+    return dbevent
+  }
 }

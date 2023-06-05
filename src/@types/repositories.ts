@@ -17,6 +17,7 @@ export interface IEventRepository {
   create(event: Event): Promise<number>
   upsert(event: Event): Promise<number>
   findByFilters(filters: SubscriptionFilter[]): IQueryResult<DBEvent[]>
+  findByEventId(eventId: string, client?: DatabaseClient): Promise<DBEvent>
   insertStubs(pubkey: string, eventIdsToDelete: EventId[]): Promise<number>
   deleteByPubkeyAndIds(pubkey: Pubkey, ids: EventId[]): Promise<number>
 }
@@ -49,7 +50,8 @@ export interface IUserRepository {
 
 export interface IGroupRepository {
   findByPubkey(pubkey: Pubkey, client?: DatabaseClient): Promise<Group | undefined>
-  findByGroupName(groupName: string, client?: DatabaseClient): Promise<Group | undefined>
+  findByGroupTag(groupTag: string, client?: DatabaseClient): Promise<Group | undefined>
+  findByPubkeyAndGroupTag(groupTag: string, pubkkey: Pubkey, client?: DatabaseClient): Promise<Group | undefined>
   upsert(group: Partial<Group>, client?: DatabaseClient): Promise<number>
   
 }

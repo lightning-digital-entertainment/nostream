@@ -29,13 +29,31 @@ export class GroupRepository implements IGroupRepository {
     return fromDBGroup(dbgroup)
   }
 
-  public async findByGroupName(
-    groupName: string,
+  public async findByGroupTag(
+    groupTag: string,
     client: DatabaseClient = this.dbClient
   ): Promise<Group | undefined> {
-    debug('find by group name: %s', groupName)
+    debug('find by groupTag: %s', groupTag)
     const [dbgroup] = await client<DBGroup>('groups')
-      .where('group_name', groupName)
+      .where('group_tag', groupTag)
+      .select()
+
+    if (!dbgroup) {
+      return
+    }
+
+    return fromDBGroup(dbgroup)
+  }
+
+  public async findByPubkeyAndGroupTag(
+    groupTag: string,
+    pubkey: Pubkey,
+    client: DatabaseClient = this.dbClient
+  ): Promise<Group | undefined> {
+    debug('find by groupTag & Pubkey: %s %o', groupTag, pubkey)
+    const [dbgroup] = await client<DBGroup>('groups')
+      .where('group_tag', groupTag)
+      .andWhere('pubkey', toBuffer(pubkey))
       .select()
 
     if (!dbgroup) {
@@ -54,20 +72,20 @@ export class GroupRepository implements IGroupRepository {
     const date = new Date()
 
     const row = applySpec<DBGroup>({
-      groupName: prop('groun_name'),
+      group_tag: prop('groupTag'),
       pubkey: pipe(prop('pubkey'), toBuffer),
-      role1: prop('role_1'),
+      role_1: prop('role1'),
       updated_at: always(date),
       created_at: always(date),
     })(group)
 
     const query = client<DBGroup>('groups')
       .insert(row)
-      .onConflict('pubkey')
+      .onConflict(['pubkey', 'group_tag'])
       .merge(
         omit([
           'pubkey',
-          'group_name',
+          'group_tag',
           'created_at',
         ])(row)
       )
