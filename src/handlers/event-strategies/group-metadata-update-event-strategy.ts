@@ -1,4 +1,4 @@
-import { EventAction, EventTags, GroupRoles } from '../../constants/base'
+import { EventAction, EventKinds, EventTags, GroupRoles } from '../../constants/base'
 import { ICacheAdapter, IWebSocketAdapter } from '../../@types/adapters'
 import { IEventRepository, IGroupRepository, IUserRepository } from '../../@types/repositories'
 import { createCommandResult } from '../../utils/messages'
@@ -33,7 +33,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     public async execute(event: Event): Promise<void> {
     debug('received group metadata update event: %o', event)
     
-    const [, ...groupTag] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
+    const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
     const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'name') ?? [null, '']
     const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'picture') ?? [null, '']
     
@@ -45,11 +45,11 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     const groupRemove = event.tags.filter((tag) => tag.length >= 2  && tag[0] === 'action' &&
                                tag[1] === EventAction.Remove)
                               
-    debug('Group Info: %o, %s, %e', groupTag?groupTag[0]:'', groupName, groupPicture)
+    debug('Group Info: %o, %s, %e', groupSlug?groupSlug[0]:'', groupName, groupPicture)
     debug('Group add: %o ', groupAdd?groupAdd:'' )
     debug('Group remove: %o ', groupRemove?groupRemove:'' )
 
-    let groupId = await this.cache.getKey(groupTag?groupTag[0]:'')
+    let groupId = await this.cache.getKey(groupSlug?groupSlug[0]:'')
 
     if (!groupId) groupId = await this.createGroup(event)
 
@@ -64,13 +64,13 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     //const findEvents = await this.eventRepository.findByEventId(groupId)
     //debug('find events results: %o', findEvents)
 
-    const eventUser = await this.groupRepository.findByPubkeyAndGroupTag(groupTag[0], event.pubkey)
+    const eventUser = await this.groupRepository.findByPubkeyAndgroupSlug(groupSlug[0], event.pubkey)
     debug('find user in DB: %o', eventUser)
 
     try {
 
       let updateResult=true
-      if (groupAdd.length > 0) updateResult = await this.upsertUserToGroup(eventUser, event, groupAdd, groupTag[0])
+      if (groupAdd.length > 0) updateResult = await this.upsertUserToGroup(eventUser, event, groupAdd, groupSlug[0])
 
       if (!updateResult) {
         this.webSocket.emit(
@@ -81,7 +81,8 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
       }
 
-      if (groupRemove.length > 0) updateResult = await this.upsertUserToGroup(eventUser,event, groupRemove, groupTag[0])
+      if (groupRemove.length > 0) 
+                      {updateResult = await this.upsertUserToGroup(eventUser,event, groupRemove, groupSlug[0])}
 
       if (!updateResult) {
         this.webSocket.emit(
@@ -115,7 +116,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
   protected async createGroup(event: Event): Promise<string> {
       const date: Date = new Date() 
       const transaction = new Transaction(this.dbClient)
-      const [, ...groupTag] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
+      const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
       const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[2] === 'name') ?? [null, '']
       const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[2] === 'picture') ?? [null, '']
 
@@ -141,7 +142,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
       await this.groupRepository.upsert(
         {
-          groupTag: groupTag[0],
+          groupSlug: groupSlug[0],
           pubkey: event.pubkey,
           role1: GroupRoles.Admin,
 
@@ -157,10 +158,10 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
     await this.createAndSendEvent({ 
       
-      kind: 39000, 
+      kind: EventKinds.GROUP_METADATA_SEND, 
       content: event.content, 
       tags: [
-        [EventTags.Deduplication, groupTag[0]],
+        [EventTags.Deduplication, groupSlug[0]],
         ['name', groupName?groupName[0]:''],
         ['picture', groupPicture?groupPicture[0]:''],
       ],
@@ -169,10 +170,10 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
     const eventId = await this.createAndSendEvent({ 
       
-      kind: 39001, 
+      kind: EventKinds.GROUP_METADATA_ADMINS, 
       content: event.content, 
       tags: [
-        [EventTags.Deduplication, groupTag[0]],
+        [EventTags.Deduplication, groupSlug[0]],
         [EventTags.Pubkey, event.pubkey, GroupRoles.Admin],
         
       ],
@@ -182,17 +183,17 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     
     await this.createAndSendEvent({  
       
-      kind: 9, 
-      content: 'This simple chat group ' + groupTag[0] + ' was created by #[0] on ' + date, 
+      kind: EventKinds.GROUP_MESSAGE, 
+      content: 'This simple chat group ' + groupSlug[0] + ' was created by #[0] on ' + date, 
       tags: [
-        [EventTags.groupChat, groupTag[0]],
+        [EventTags.groupChat, groupSlug[0]],
         [EventTags.Pubkey, event.pubkey, GroupRoles.Admin],
         
       ],
     
     })
 
-    await this.cache.setKey(groupTag[0],eventId)
+    await this.cache.setKey(groupSlug[0],eventId)
 
     return eventId
   }
@@ -209,7 +210,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
   }
 
   protected async upsertUserToGroup(eventUser: Group, event: Event, groupUpdate:any[], 
-                                                                groupTag: string): Promise<boolean> {
+                                                                groupSlug: string): Promise<boolean> {
     const date: Date = new Date() 
     const transaction = new Transaction(this.dbClient)
 
@@ -220,7 +221,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
         debug('going to update user %o', pubkey)
 
-        const findUser = await this.groupRepository.findByPubkeyAndGroupTag(groupTag, pubkey)
+        const findUser = await this.groupRepository.findByPubkeyAndgroupSlug(groupSlug, pubkey)
 
         let role=''
         let content=''
@@ -252,7 +253,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     
           await this.groupRepository.upsert(
             {
-              groupTag: groupTag,
+              groupSlug: groupSlug,
               pubkey: pubkey,
               role1: role,
     
@@ -268,10 +269,10 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
           await this.createAndSendEvent({  
       
-            kind: 9, 
+            kind: EventKinds.GROUP_MESSAGE, 
             content: content, 
             tags: [
-              [EventTags.groupChat, groupTag[0]],
+              [EventTags.groupChat, groupSlug],
               [EventTags.Pubkey, pubkey, role],
               
             ],
@@ -284,11 +285,11 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
     if (noUpdate) return false
 
-    const groupUsers:Group[] = await this.groupRepository.findByGroupTag(groupTag)
+    const groupUsers:Group[] = await this.groupRepository.findBygroupSlug(groupSlug)
 
     const tags = []
 
-    tags.push([EventTags.Deduplication, groupTag])
+    tags.push([EventTags.Deduplication, groupSlug])
 
     for (const groupUser of groupUsers) {
 
@@ -301,7 +302,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
     const eventId = await this.createAndSendEvent({ 
       
-      kind: 39001, 
+      kind: EventKinds.GROUP_METADATA_ADMINS, 
       content: event.id, 
       tags: tags,
     

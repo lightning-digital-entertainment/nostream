@@ -29,13 +29,13 @@ export class GroupRepository implements IGroupRepository {
     return fromDBGroup(dbgroup)
   }
 
-  public async findByGroupTag(
-    groupTag: string,
+  public async findBygroupSlug(
+    groupSlug: string,
     client: DatabaseClient = this.dbClient
   ): Promise<Group[] | undefined> {
-    debug('find by groupTag: %s', groupTag)
+    debug('find by groupSlug: %s', groupSlug)
     const dbgroupUsers = await client<DBGroup>('groups')
-      .where('group_tag', groupTag)
+      .where('group_slug', groupSlug)
       .select()
 
     if (!dbgroupUsers) {
@@ -45,14 +45,14 @@ export class GroupRepository implements IGroupRepository {
     return dbgroupUsers.map(fromDBGroup) 
   }
 
-  public async findByPubkeyAndGroupTag(
-    groupTag: string,
+  public async findByPubkeyAndgroupSlug(
+    groupSlug: string,
     pubkey: Pubkey,
     client: DatabaseClient = this.dbClient
   ): Promise<Group | undefined> {
-    debug('find by groupTag & Pubkey: %s %o', groupTag, pubkey)
+    debug('find by groupSlug & Pubkey: %s %o', groupSlug, pubkey)
     const [dbgroup] = await client<DBGroup>('groups')
-      .where('group_tag', groupTag)
+      .where('group_slug', groupSlug)
       .andWhere('pubkey', toBuffer(pubkey))
       .select()
 
@@ -72,7 +72,7 @@ export class GroupRepository implements IGroupRepository {
     const date = new Date()
 
     const row = applySpec<DBGroup>({
-      group_tag: prop('groupTag'),
+      group_slug: prop('groupSlug'),
       pubkey: pipe(prop('pubkey'), toBuffer),
       role_1: prop('role1'),
       updated_at: always(date),
@@ -81,11 +81,11 @@ export class GroupRepository implements IGroupRepository {
 
     const query = client<DBGroup>('groups')
       .insert(row)
-      .onConflict(['pubkey', 'group_tag'])
+      .onConflict(['pubkey', 'group_slug'])
       .merge(
         omit([
           'pubkey',
-          'group_tag',
+          'group_slug',
           'created_at',
         ])(row)
       )

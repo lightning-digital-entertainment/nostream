@@ -309,6 +309,12 @@ export const isGroupMetadataUpdate = (event: Event): boolean => {
 
 }
 
+export const isGroupMessage = (event: Event): boolean => {
+  if (event.kind === EventKinds.GROUP_MESSAGE) return true
+  else return false
+
+}
+
 export const getEventExpiration = (event: Event): number | undefined => {
   const [, rawExpirationTime] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.Expiration) ?? []
   if (!rawExpirationTime) return
