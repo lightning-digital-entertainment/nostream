@@ -54,7 +54,15 @@ export enum GroupRoles {
 
     Admin = 'admin',
     User = 'user',
-    Ban = 'ban'
+    Banned = 'banned',
+    Removed = 'removed'
+
+}
+
+export enum EventAction {
+
+  Add = 'add',
+  Remove = 'remove'
 
 }
 

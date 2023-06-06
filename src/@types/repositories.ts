@@ -50,7 +50,7 @@ export interface IUserRepository {
 
 export interface IGroupRepository {
   findByPubkey(pubkey: Pubkey, client?: DatabaseClient): Promise<Group | undefined>
-  findByGroupTag(groupTag: string, client?: DatabaseClient): Promise<Group | undefined>
+  findByGroupTag(groupTag: string, client?: DatabaseClient): Promise<Group[] | undefined>
   findByPubkeyAndGroupTag(groupTag: string, pubkkey: Pubkey, client?: DatabaseClient): Promise<Group | undefined>
   upsert(group: Partial<Group>, client?: DatabaseClient): Promise<number>
   

@@ -32,17 +32,17 @@ export class GroupRepository implements IGroupRepository {
   public async findByGroupTag(
     groupTag: string,
     client: DatabaseClient = this.dbClient
-  ): Promise<Group | undefined> {
+  ): Promise<Group[] | undefined> {
     debug('find by groupTag: %s', groupTag)
-    const [dbgroup] = await client<DBGroup>('groups')
+    const dbgroupUsers = await client<DBGroup>('groups')
       .where('group_tag', groupTag)
       .select()
 
-    if (!dbgroup) {
+    if (!dbgroupUsers) {
       return
     }
 
-    return fromDBGroup(dbgroup)
+    return dbgroupUsers.map(fromDBGroup) 
   }
 
   public async findByPubkeyAndGroupTag(
