@@ -19,6 +19,7 @@ import { WebSocketAdapterEvent } from '../../constants/adapter'
 
 
 const debug = createLogger('group-message-event-strategy')
+const specialChars = /[!@#$%^&*()_+=[\]{};':"\\|,.<>?]+/
 
 export class GroupMessageEventStrategy implements IEventStrategy<Event, Promise<void>> {
   public constructor(
@@ -34,6 +35,19 @@ export class GroupMessageEventStrategy implements IEventStrategy<Event, Promise<
 
     const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
 
+    const groupSlugn = groupSlug[0].split('/')
+
+    if (  specialChars.test(groupSlug[0]) || !groupSlugn[1]) {
+
+      this.webSocket.emit(
+        WebSocketAdapterEvent.Message,
+        createCommandResult(event.id, false, 'Error: Incorrect Group Slug or cannnot contain special Chars. '),
+      )
+      return
+
+
+    }
+
     if (groupSlug.length === 0) {
         this.webSocket.emit(
             WebSocketAdapterEvent.Message,
@@ -43,7 +57,7 @@ export class GroupMessageEventStrategy implements IEventStrategy<Event, Promise<
 
     }
 
-    const eventUser = await this.groupRepository.findByPubkeyAndgroupSlug(groupSlug[0], event.pubkey)
+    const eventUser = await this.groupRepository.findByPubkeyAndgroupSlug('/'+groupSlug[0].split('/')[1], event.pubkey)
     debug('find user in DB: %o', eventUser)
 
     if (!eventUser) {

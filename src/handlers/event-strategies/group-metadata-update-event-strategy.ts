@@ -18,6 +18,7 @@ import { WebSocketAdapterEvent } from '../../constants/adapter'
 
 
 const debug = createLogger('group-metadata-update-event-strategy')
+const specialChars = /[!@#$%^&*()_+=[\]{};':"\\|,.<>?]+/
 
 export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, Promise<void>> {
     public constructor(
@@ -36,6 +37,50 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
     const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'name') ?? [null, '']
     const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'picture') ?? [null, '']
+
+    const groupSlugn = groupSlug[0].split('/')
+    let groupId = await this.cache.getKey(groupSlug?groupSlug[0]:'')
+
+    if (  specialChars.test(groupSlug[0]) || !groupSlugn[1]) {
+
+      this.webSocket.emit(
+        WebSocketAdapterEvent.Message,
+        createCommandResult(event.id, false, 'Error: Incorrect Group Slug or cannnot contain special Chars. '),
+      )
+      return
+
+
+    }
+    
+    //Check and create subgroup if needed
+    if (groupSlugn.length > 2) {
+
+      if (!groupId) groupId = await this.createSubGroup(event)
+
+      if (groupId.startsWith('Error:'))   {
+        this.webSocket.emit(
+          WebSocketAdapterEvent.Message,
+          createCommandResult(event.id, false, groupId),
+        )
+      }  else {
+
+        const count = await this.eventRepository.create(event)
+        this.webSocket.emit(WebSocketAdapterEvent.Message, createCommandResult(event.id, true, (count) ? '' : 'duplicate:'))
+
+        if (count) {
+          this.webSocket.emit(WebSocketAdapterEvent.Broadcast, event)
+        }
+      }     
+      return
+
+    }
+
+
+
+    
+    if (groupSlugn[0].split('/').length > 1) {
+          debug('subgroup Slug found: ' , groupSlug[0].split('/'))
+    }
     
     const groupAdd = event.tags.filter((tag) => tag.length >= 2  && tag[0] === 'action' && 
                               tag[1] === EventAction.Add && 
@@ -49,7 +94,6 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     debug('Group add: %o ', groupAdd?groupAdd:'' )
     debug('Group remove: %o ', groupRemove?groupRemove:'' )
 
-    let groupId = await this.cache.getKey(groupSlug?groupSlug[0]:'')
 
     if (!groupId) groupId = await this.createGroup(event)
 
@@ -117,8 +161,8 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
       const date: Date = new Date() 
       const transaction = new Transaction(this.dbClient)
       const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
-      const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[2] === 'name') ?? [null, '']
-      const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[2] === 'picture') ?? [null, '']
+      const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'name') ?? [null, '']
+      const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'picture') ?? [null, '']
 
       //Check to see if user has balance
       let userBalance = await this.userRepository.getBalanceByPubkey(event.pubkey)
@@ -181,6 +225,8 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     })
 
     
+
+    
     await this.createAndSendEvent({  
       
       kind: EventKinds.GROUP_MESSAGE, 
@@ -197,6 +243,69 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
 
     return eventId
   }
+
+  protected async createSubGroup(event: Event): Promise<string> {
+    const date: Date = new Date() 
+    const transaction = new Transaction(this.dbClient)
+    const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
+    const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'name') ?? [null, '']
+    const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'picture') ?? [null, '']
+
+    //Check to see if user has balance
+    const userBalance = await this.userRepository.getBalanceByPubkey(event.pubkey)
+    debug('User Balance: %o', userBalance)
+
+    if (!userBalance) {
+        return 'Error: You must be registered relay user to create Sub Group. Please visit https://spool.chat'
+    }
+
+  
+    await transaction.begin()
+
+    await this.groupRepository.upsert(
+      {
+        groupSlug: groupSlug[0],
+        pubkey: event.pubkey,
+        role1: GroupRoles.Admin,
+
+      },
+      transaction.transaction,
+
+
+    )
+
+  await transaction.commit()
+
+
+  const eventId = await this.createAndSendEvent({ 
+    
+    kind: EventKinds.GROUP_METADATA_SEND, 
+    content: event.content, 
+    tags: [
+      [EventTags.Deduplication, groupSlug[0]],
+      ['name', groupName?groupName[0]:''],
+      ['picture', groupPicture?groupPicture[0]:''],
+    ],
+  
+  })
+
+  
+  await this.createAndSendEvent({  
+    
+    kind: EventKinds.GROUP_MESSAGE, 
+    content: 'This simple chat Sub group ' + groupSlug[0] + ' was created by #[0] on ' + date, 
+    tags: [
+      [EventTags.groupChat, groupSlug[0]],
+      [EventTags.Pubkey, event.pubkey, GroupRoles.Admin],
+      
+    ],
+  
+  })
+
+  await this.cache.setKey(groupSlug[0],eventId)
+
+  return eventId
+}
 
   protected async createAndSendEvent(event: Partial<Event>): Promise<string> {
 
@@ -308,7 +417,10 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     
     })
 
-    if (eventId) return true
+    if (eventId)  {
+      await this.cache.setKey(groupSlug,eventId)
+      return true
+    } 
 
     return false
   }
