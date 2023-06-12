@@ -1,11 +1,11 @@
-import { EventAction, EventKinds, EventTags, GroupRoles } from '../../constants/base'
+import { Event, ParameterizedReplaceableEvent } from '../../@types/event'
+import { EventAction, EventDeduplicationMetadataKey, EventKinds, EventTags, GroupRoles } from '../../constants/base'
 import { ICacheAdapter, IWebSocketAdapter } from '../../@types/adapters'
 import { IEventRepository, IGroupRepository, IUserRepository } from '../../@types/repositories'
 import { createCommandResult } from '../../utils/messages'
 import { createEvent } from '../../utils/event' 
 import { createLogger } from '../../factories/logger-factory'
 import { DatabaseClient } from '../../@types/base'
-import { Event } from '../../@types/event'
 import { Group } from '../../@types/group'
 import { IEventStrategy } from '../../@types/message-handlers'
 import { Settings } from '../../@types/settings'
@@ -33,10 +33,9 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     
     public async execute(event: Event): Promise<void> {
     debug('received group metadata update event: %o', event)
-    
+
     const [, ...groupSlug] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.groupChat) ?? [null, '']
-    const [, ...groupName] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'name') ?? [null, '']
-    const [, ...groupPicture] = event.tags.find((tag) => tag.length >= 2 && tag[1] === 'picture') ?? [null, '']
+  
 
     const groupSlugn = groupSlug[0].split('/')
     let groupId = await this.cache.getKey(groupSlug?groupSlug[0]:'')
@@ -90,7 +89,7 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     const groupRemove = event.tags.filter((tag) => tag.length >= 2  && tag[0] === 'action' &&
                                tag[1] === EventAction.Remove)
                               
-    debug('Group Info: %o, %s, %e', groupSlug?groupSlug[0]:'', groupName, groupPicture)
+
     debug('Group add: %o ', groupAdd?groupAdd:'' )
     debug('Group remove: %o ', groupRemove?groupRemove:'' )
 
@@ -206,8 +205,8 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
       content: event.content, 
       tags: [
         [EventTags.Deduplication, groupSlug[0]],
-        ['name', groupName?groupName[0]:''],
-        ['picture', groupPicture?groupPicture[0]:''],
+        ['name', groupName?groupName[1]:''],
+        ['picture', groupPicture?groupPicture[1]:''],
       ],
     
     })
@@ -283,8 +282,8 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
     content: event.content, 
     tags: [
       [EventTags.Deduplication, groupSlug[0]],
-      ['name', groupName?groupName[0]:''],
-      ['picture', groupPicture?groupPicture[0]:''],
+      ['name', groupName?groupName[1]:''],
+      ['picture', groupPicture?groupPicture[1]:''],
     ],
   
   })
@@ -310,8 +309,26 @@ export class GroupMetadataUpdateEventStrategy implements IEventStrategy<Event, P
   protected async createAndSendEvent(event: Partial<Event>): Promise<string> {
 
     const createSendEvent = await createEvent(event)
-    const response = await this.eventRepository.upsert(createSendEvent)
-    debug('Create event is: %o ', response)
+    let response = 0
+
+    if (event.kind >= 30000 && event.kind <= 40000) {
+
+      const [, ...deduplication] = event.tags.find((tag) => tag.length >= 2 && tag[0] === EventTags.Deduplication) ?? [null, '']
+
+      const parameterizedReplaceableEvent: ParameterizedReplaceableEvent = {
+        ...createSendEvent,
+        [EventDeduplicationMetadataKey]: deduplication,
+      }
+
+      debug('parameterizedReplaceableEvent: %o', parameterizedReplaceableEvent)
+
+      response = await this.eventRepository.upsert(parameterizedReplaceableEvent)
+
+    } else {
+      response = await this.eventRepository.upsert(createSendEvent)
+
+    }
+
     this.webSocket.emit(WebSocketAdapterEvent.Message, createCommandResult(createSendEvent.id, true, (response) ? '' : 'duplicate:'))
     this.webSocket.emit(WebSocketAdapterEvent.Broadcast, createSendEvent)
 

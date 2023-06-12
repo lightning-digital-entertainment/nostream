@@ -16,17 +16,17 @@ export class GroupRepository implements IGroupRepository {
   public async findByPubkey(
     pubkey: Pubkey,
     client: DatabaseClient = this.dbClient
-  ): Promise<Group | undefined> {
+  ): Promise<Group[] | undefined> {
     debug('find by pubkey: %s', pubkey)
-    const [dbgroup] = await client<DBGroup>('groups')
+    const dbgroupUsers = await client<DBGroup>('groups')
       .where('pubkey', toBuffer(pubkey))
       .select()
 
-    if (!dbgroup) {
-      return
-    }
-
-    return fromDBGroup(dbgroup)
+      if (!dbgroupUsers) {
+        return
+      }
+  
+      return dbgroupUsers.map(fromDBGroup) 
   }
 
   public async findBygroupSlug(
@@ -62,6 +62,7 @@ export class GroupRepository implements IGroupRepository {
 
     return fromDBGroup(dbgroup)
   }
+  
 
   public async upsert(
     group: Group,

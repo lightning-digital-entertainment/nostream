@@ -1,16 +1,17 @@
 import { anyPass, equals, isNil, map, propSatisfies, uniqWith } from 'ramda'
+import { createEvent, isEventMatchingFilter, toNostrEvent } from '../utils/event'
+import { EventKinds, EventTags, GroupRoles  } from '../constants/base'
+import { IEventRepository, IGroupRepository } from '../@types/repositories'
 // import { addAbortSignal } from 'stream'
-import { pipeline } from 'stream/promises'
-
 import { createEndOfStoredEventsNoticeMessage, createNoticeMessage, createOutgoingEventMessage } from '../utils/messages'
 import { IAbortable, IMessageHandler } from '../@types/message-handlers'
-import { isEventMatchingFilter, toNostrEvent } from '../utils/event'
 import { streamEach, streamEnd, streamFilter, streamMap } from '../utils/stream'
 import { SubscriptionFilter, SubscriptionId } from '../@types/subscription'
 import { createLogger } from '../factories/logger-factory'
-import { Event } from '../@types/event'
-import { IEventRepository } from '../@types/repositories'
+import { Event} from '../@types/event'
+import { Group } from '../@types/group'
 import { IWebSocketAdapter } from '../@types/adapters'
+import { pipeline } from 'stream/promises'
 import { Settings } from '../@types/settings'
 import { SubscribeMessage } from '../@types/messages'
 import { WebSocketAdapterEvent } from '../constants/adapter'
@@ -23,6 +24,7 @@ export class SubscribeMessageHandler implements IMessageHandler, IAbortable {
   public constructor(
     private readonly webSocket: IWebSocketAdapter,
     private readonly eventRepository: IEventRepository,
+    private readonly groupRepository: IGroupRepository,
     private readonly settings: () => Settings,
   ) {
     //this.abortController = new AbortController()
@@ -44,6 +46,8 @@ export class SubscribeMessageHandler implements IMessageHandler, IAbortable {
     }
 
     this.webSocket.emit(WebSocketAdapterEvent.Subscribe, subscriptionId, filters)
+
+    await this.createGroupSubscriptionEvent(subscriptionId,filters)
 
     await this.fetchAndSend(subscriptionId, filters)
   }
@@ -114,6 +118,67 @@ export class SubscribeMessageHandler implements IMessageHandler, IAbortable {
       return `Subscription ID too long: Subscription ID must be less or equal to ${subscriptionLimits.maxSubscriptionIdLength}`
     }
 
+  }
+
+  protected async createGroupSubscriptionEvent(subscriptionId: string,filters: SubscriptionFilter[]) {   
+
+    for (const currentFilter of filters) {  
+
+
+      if (currentFilter.kinds[0] === EventKinds.GROUP_METADATA_SUBSCRIPTION) {
+
+        const ptag = Object.keys(currentFilter).some((key) => key === '#p')
+
+        if (ptag) {
+          const { '#p': value } = currentFilter
+        
+
+          const groupUsers:Group[] = await this.groupRepository.findByPubkey(value[0])
+
+          const tags = []
+
+          tags.push([EventTags.Deduplication, value[0]])
+          tags.push([EventTags.Pubkey, value[0]])
+
+          for (const groupUser of groupUsers) {
+
+              debug('Group user: %o ', groupUser)
+               if (groupUser.role1 === GroupRoles.Admin || groupUser.role1 === GroupRoles.User) {
+                  tags.push([EventTags.groupChat, groupUser.groupSlug, groupUser.role1])
+               }
+          }
+
+
+          if (groupUsers) {
+
+              const event:Partial<Event> = {  
+
+                kind: EventKinds.GROUP_METADATA_SUBSCRIPTION, 
+                content: '', 
+                tags: tags,
+              
+              }
+
+              const createSubscribedGroupEvent = await createEvent(event)
+
+              debug ('Group subscription event: %o', createSubscribedGroupEvent)
+
+              this.webSocket.emit(WebSocketAdapterEvent.Message, 
+                                          createOutgoingEventMessage(subscriptionId, createSubscribedGroupEvent))
+
+
+          }
+
+        }
+           
+
+      }
+
+    }
 
   }
+
+
+
+  
 }
