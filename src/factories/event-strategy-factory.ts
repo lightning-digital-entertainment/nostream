@@ -8,7 +8,11 @@ import { IEventRepository } from '../@types/repositories'
 import { IEventStrategy } from '../@types/message-handlers'
 import { IWebSocketAdapter } from '../@types/adapters'
 import { ParameterizedReplaceableEventStrategy } from '../handlers/event-strategies/parameterized-replaceable-event-strategy'
+import { RedisAdapter } from '../adapters/redis-adapter'
 import { ReplaceableEventStrategy } from '../handlers/event-strategies/replaceable-event-strategy'
+
+import { getCacheClient } from '../cache/client'
+
 
 export const eventStrategyFactory = (
   eventRepository: IEventRepository,
@@ -23,6 +27,6 @@ export const eventStrategyFactory = (
     } else if (isParameterizedReplaceableEvent(event)) {
       return new ParameterizedReplaceableEventStrategy(adapter, eventRepository)
     } 
-
-    return new DefaultEventStrategy(adapter, eventRepository)
+    const cache = new RedisAdapter(getCacheClient())   
+    return new DefaultEventStrategy(adapter, eventRepository, cache)
   }

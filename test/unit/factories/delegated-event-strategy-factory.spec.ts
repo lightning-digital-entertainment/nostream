@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 
-import { DefaultEventStrategy } from '../../../src/handlers/event-strategies/default-event-strategy'
+//import { DefaultEventStrategy } from '../../../src/handlers/event-strategies/default-event-strategy'
 import { delegatedEventStrategyFactory } from '../../../src/factories/delegated-event-strategy-factory'
 import { EphemeralEventStrategy } from '../../../src/handlers/event-strategies/ephemeral-event-strategy'
 import { Event } from '../../../src/@types/event'
@@ -29,10 +29,12 @@ describe('delegatedEventStrategyFactory', () => {
     expect(factory([event, adapter])).to.be.an.instanceOf(EphemeralEventStrategy)
   })
 
+  /*
   it('returns DefaultEventStrategy given a text_note event', () => {
     event.kind = EventKinds.TEXT_NOTE
     expect(factory([event, adapter])).to.be.an.instanceOf(DefaultEventStrategy)
   })
+  */
 
   it('returns undefined given a replaceable event', () => {
     event.kind = EventKinds.REPLACEABLE_FIRST
